@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Lesson 1</title>
+		<link rel="stylesheet" type="text/css" href="css/main.css">
+		<script src="https://d3js.org/d3.v4.min.js"></script>
+		<script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+		<link href="https://fonts.googleapis.com/css?family=Fjalla+One:400|Inconsolata" rel="stylesheet">
+
+		<style>
+			
+		</style>
+
+	</head>
+
+	<body>
+		<div id = "vis"></div>
+	</body>
+
+	<script>
+		// var parseDate = d3.timeParse("%m/%d/%Y"); %m-%d-%y lowercase is dif than Y
+		// + is = Number()
+
+    	d3.csv('data/menu.csv')
+    		.row(function(d){ return {item: d.Item, cals: +d.Calories, carb: +d.Carbohydrates}})
+    		.get(function(error, data){
+
+    			// console.log(data);
+    		
+    			var height = 300;
+    			var width = 400;
+
+    			var svg = d3.select("#vis").append("svg")
+    				.attr("height", "100%")
+    				.attr("width", "100%");
+
+    			var margin = {
+    				left: 50,
+    				right: 50,
+    				top: 40, 
+    				bottom: 0
+    			};
+
+    			var max1 = d3.max(data, function(d){ return d.cals; });
+
+    			var y1 = d3.scaleLinear()
+    				.domain([0, max1])
+    				.range([height,0]);
+    				
+    			var x = d3.scalePoint()
+    				.domain(data.map(function(d) { return d.item; }))
+    				.range([0, width]);
+
+    			var y1Axis = d3.axisLeft(y1);
+    			var xAxis = d3.axisBottom(x);
+
+    			var chartGroup_1 = svg.append("g")
+    				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    			var line = d3.line()
+    				.x( function(d){ return x(d.item); })
+    				.y( function(d){ return y1(d.cals); });
+
+    			chartGroup_1.append("path")
+    				.attr("class", "graph")
+					.attr("d", line(data));
+
+    			chartGroup_1.append("g")
+    				.attr("class", "x axis")
+    				.attr("transform", "translate(0, "+height+")")
+    				.call(xAxis)
+    				// .selectAll(".tick")
+    				// 	.attr("transform", "rotate(90)");
+    					// .attr("transform", "translate(, "+height+")")
+
+    				.selectAll("text")
+    					.attr("y", 5)
+					    .attr("x", 5)
+					    .attr("transform", "rotate(45)")
+					    .style("text-anchor", "start");
+    			chartGroup_1.append("g").attr("class", "y axis").call(y1Axis);
+
+
+    			var max2 = d3.max(data, function(d){ return d.carb; });
+    			console.log(max2);
+    			var y2 = d3.scaleLinear()
+    				.domain([0, max2])
+    				.range([height,0]);
+    				
+    			var y2Axis = d3.axisLeft(y2);
+
+    			var chartGroup_2 = svg.append("g")
+    				.attr("transform", "translate(" + (margin.left + width + margin.left) + "," + margin.top + ")");
+
+    			var line = d3.line()
+    				.x( function(d){ return x(d.item); })
+    				.y( function(d){ return y2(d.carb); });
+
+    			chartGroup_2.append("path")
+    				.attr("class", "graph")
+					.attr("d", line(data));
+
+    			chartGroup_2.append("g")
+    				.attr("class", "x axis")
+    				.attr("transform", "translate(0, "+height+")")
+    				.call(xAxis)
+    				// .selectAll(".tick")
+    				// 	.attr("transform", "rotate(90)");
+    					// .attr("transform", "translate(, "+height+")")
+
+    				.selectAll("text")
+    					.attr("y", 5)
+					    .attr("x", 5)
+					    .attr("transform", "rotate(45)")
+					    .style("text-anchor", "start");
+    			chartGroup_2.append("g").attr("class", "y axis").call(y2Axis);
+
+
+
+
+    			var cG = [chartGroup_1, chartGroup_2];
+    			var cY = [y1, y2];
+
+    			for (var i = 0; i < cG.length; i++) {
+    				// var group = "chartGroup" + (i+1);
+
+    				var focus = cG[i].append("g")
+				        .attr("class", "focus")
+				        .style("display", "none");
+
+				    focus.append("line")
+						.attr("class", "tooltip")
+						.attr("x1", 0)
+						.attr("y1", 0)
+						.attr("x2", 0)
+						.attr("y2", height);
+
+					focus.append("circle")
+						.attr("id", "circ"+i)
+      					.attr("r", 4.5);
+    			}
+
+    			chartGroup_1.append("rect")
+					.attr("class", "overlay")
+					.attr("width", width)
+					.attr("height", height)
+    				.on("mouseover", function() { d3.selectAll(".focus").style("display", null); })
+      				.on("mouseout", function() { d3.selectAll(".focus").style("display", "none"); })
+					.on("mousemove", scalePointPosition);
+
+    			chartGroup_2.append("rect")
+					.attr("class", "overlay")
+					.attr("width", width)
+					.attr("height", height)
+    				.on("mouseover", function() { d3.selectAll(".focus").style("display", null); })
+      				.on("mouseout", function() { d3.selectAll(".focus").style("display", "none"); })
+					.on("mousemove", scalePointPosition);
+
+
+
+
+    			function scalePointPosition() {
+					// var xPos = d3.mouse(this)[0];
+					var xPos = Math.round(d3.mouse(this)[0]/x.step());
+					var d = data[xPos];
+					// d3.selectAll(".tooltip").remove();
+
+					// chartGroup_1.append("line")
+					// 	.attr("class", "tooltip")
+					// 	.attr("x1", xPos * x.step())
+					// 	.attr("y1", 0)
+					// 	.attr("x2", xPos * x.step())
+					// 	.attr("y2", height)
+					// 	.style("stroke-width", 1)
+					// 	.style("stroke", "red")
+					// 	.style("fill", "none");
+
+					// chartGroup_1.append("text")
+
+
+					// chartGroup_2.append("line")
+					// 	.attr("class", "tooltip")
+					// 	.attr("x1", xPos * x.step())
+					// 	.attr("y1", 0)
+					// 	.attr("x2", xPos * x.step())
+					// 	.attr("y2", height)
+					// 	.style("stroke-width", 1)
+					// 	.style("stroke", "red")
+					// 	.style("fill", "none");
+
+					var cP = [d.cals, d.carb];
+
+					d3.selectAll(".focus").attr("transform", "translate(" + xPos * x.step() + ", 0)");
+
+					for (var i = 0; i < cG.length; i++) {
+						d3.select("#circ"+i).attr("transform", "translate(0," + cY[i](cP[i]) + ")")
+					};
+
+
+				}
+    	});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		// d3.csv('data/menu.csv', function(d) {
+		// 	return {
+		// 		categegory:     d['Category'],
+		// 		item:           d['Item'],
+		// 		servingSize:    d['Serving Size'],
+		// 		cals:          +d['Calories'],
+		// 		calsFat:       +d['Calories from Fat'],
+		// 		totFat:        +d['Total Fat'],
+		// 		totFatPrcnt:   +d['Total Fat (% Daily Value)'],
+		// 		satFat:        +d['Saturated Fat'],
+		// 		satFatPrcnt:   +d['Saturated Fat (% Daily Value)'],
+		// 		transFat:      +d['Trans Fat'],
+		// 		cholest:       +d['Cholesterol'],
+		// 		cholestPrcnt:  +d['Cholesterol (% Daily Value)'],
+		// 		sodium:        +d['Sodium'],
+		// 		sodiumPrcnt:   +d['Sodium (% Daily Value)'],
+		// 		carb:          +d['Carbohydrates'],
+		// 		carbPrcnt:     +d['Carbohydrates (% Daily Value)'],
+		// 		fiber:         +d['Dietary Fiber'],
+		// 		diberPrcnt:    +d['Dietary Fiber (% Daily Value)'],
+		// 		sugar:         +d['Sugars'],
+		// 		protein:       +d['Protein'],
+		// 		vitAPrcnt:     +d['Vitamin A (% Daily Value)'],
+		// 		vitCPrcnt:     +d['Vitamin C (% Daily Value)'],
+		// 		calcPrcnt:     +d['Calcium (% Daily Value)'],
+		// 		ironPrcnt:     +d['Iron (% Daily Value)']
+		// 	};
+		// }, function(data) {		
+
+		
+		// });
+
+
+	</script>
+</html>
